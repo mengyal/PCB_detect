@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>快速统计测试</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body { padding: 20px; font-family: Arial, sans-serif; }
+        .quick-stats {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 20px 0;
+            max-width: 400px;
+        }
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+        .stat-label {
+            color: #666;
+            font-size: 0.9em;
+        }
+        .stat-value {
+            font-weight: bold;
+            color: #28a745;
+        }
+        .btn {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 10px 5px;
+        }
+        .btn:hover { background: #0056b3; }
+        .log { 
+            background: #f1f1f1; 
+            padding: 10px; 
+            margin: 10px 0; 
+            border-radius: 4px; 
+            font-family: monospace; 
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <h1>快速统计功能测试</h1>
+    
+    <button class="btn" onclick="testQuickStats()">测试快速统计</button>
+    <button class="btn" onclick="clearLog()">清除日志</button>
+    
+    <div class="quick-stats">
+        <h3>统计数据</h3>
+        <div class="stat-item">
+            <span class="stat-label">总报告数</span>
+            <span class="stat-value" id="totalReports">--</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-label">平均良品率</span>
+            <span class="stat-value" id="averageYield">--%</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-label">总焊点数</span>
+            <span class="stat-value" id="totalSolderPoints">--</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-label">良品焊点</span>
+            <span class="stat-value" id="goodSolderPoints">--</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-label">缺陷焊点</span>
+            <span class="stat-value" id="defectSolderPoints">--</span>
+        </div>
+    </div>
+    
+    <h3>调试日志</h3>
+    <div id="debugLog" class="log">等待测试...</div>
+    
+    <script>
+        function log(message) {
+            const logDiv = document.getElementById('debugLog');
+            const timestamp = new Date().toLocaleTimeString();
+            logDiv.textContent += `[${timestamp}] ${message}\n`;
+            console.log(message);
+        }
+        
+        function clearLog() {
+            document.getElementById('debugLog').textContent = '日志已清除\n';
+        }
+        
+        function testQuickStats() {
+            log('开始测试快速统计功能...');
+            
+            // 检查DOM元素
+            const elements = {
+                totalReports: document.getElementById('totalReports'),
+                averageYield: document.getElementById('averageYield'),
+                totalSolderPoints: document.getElementById('totalSolderPoints'),
+                goodSolderPoints: document.getElementById('goodSolderPoints'),
+                defectSolderPoints: document.getElementById('defectSolderPoints')
+            };
+            
+            log('检查DOM元素...');
+            for (let [key, element] of Object.entries(elements)) {
+                if (!element) {
+                    log(`错误: 未找到DOM元素 ${key}`);
+                    return;
+                } else {
+                    log(`找到DOM元素: ${key}`);
+                }
+            }
+            
+            log('开始API调用...');
+            fetch('/api/reports/statistics')
+            .then(response => {
+                log(`API响应状态: ${response.status}`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                log('API数据获取成功');
+                log(`原始数据: ${JSON.stringify(data, null, 2)}`);
+                
+                // 更新统计数据
+                elements.totalReports.textContent = data.total_reports || 0;
+                elements.averageYield.textContent = `${(data.avg_pass_rate || 0).toFixed(1)}%`;
+                elements.totalSolderPoints.textContent = data.total_solder_points || 0;
+                elements.goodSolderPoints.textContent = data.total_good || 0;
+                elements.defectSolderPoints.textContent = data.total_defects || 0;
+                
+                log('统计数据更新完成');
+                log(`更新后的值:`);
+                log(`  总报告数: ${elements.totalReports.textContent}`);
+                log(`  平均良品率: ${elements.averageYield.textContent}`);
+                log(`  总焊点数: ${elements.totalSolderPoints.textContent}`);
+                log(`  良品焊点: ${elements.goodSolderPoints.textContent}`);
+                log(`  缺陷焊点: ${elements.defectSolderPoints.textContent}`);
+            })
+            .catch(error => {
+                log(`API调用失败: ${error.message}`);
+                console.error('API call failed:', error);
+            });
+        }
+    </script>
+</body>
+</html>

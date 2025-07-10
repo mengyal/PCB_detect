@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>统计功能测试</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="static/style.css" rel="stylesheet">
+    <style>
+        body { padding: 20px; font-family: Arial, sans-serif; }
+        .test-result { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .stats-container { max-width: 800px; margin: 20px auto; }
+    </style>
+    <script>
+        function testStatistics() {
+            console.log('开始测试统计功能...');
+            
+            fetch('/api/reports/statistics')
+            .then(response => {
+                console.log('API响应状态:', response.status);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('统计数据:', data);
+                
+                // 测试趋势数据解析
+                if (data.trends && data.trends.length > 0) {
+                    console.log('趋势数据解析测试:');
+                    data.trends.forEach((trendData, index) => {
+                        console.log(`  趋势 ${index + 1}:`, {
+                            date: trendData[0],
+                            reports: trendData[1],
+                            passRate: trendData[2],
+                            defects: trendData[3]
+                        });
+                    });
+                    
+                    // 直接渲染统计卡片
+                    document.getElementById('result').innerHTML = `
+                        <div class="stats-container">
+                            <h3>统计数据测试 - 直接渲染</h3>
+                            <div class="stats-grid">
+                                <div class="stat-card">
+                                    <div class="stat-icon">
+                                        <i class="fas fa-file-alt"></i>
+                                    </div>
+                                    <div class="stat-content">
+                                        <h4>${data.total_reports || 0}</h4>
+                                        <p>总报告数</p>
+                                    </div>
+                                </div>
+                                <div class="stat-card">
+                                    <div class="stat-icon">
+                                        <i class="fas fa-circle"></i>
+                                    </div>
+                                    <div class="stat-content">
+                                        <h4>${data.total_solder_points || 0}</h4>
+                                        <p>总焊点数</p>
+                                    </div>
+                                </div>
+                                <div class="stat-card success">
+                                    <div class="stat-icon">
+                                        <i class="fas fa-check-circle"></i>
+                                    </div>
+                                    <div class="stat-content">
+                                        <h4>${data.total_good || 0}</h4>
+                                        <p>良品焊点</p>
+                                    </div>
+                                </div>
+                                <div class="stat-card error">
+                                    <div class="stat-icon">
+                                        <i class="fas fa-exclamation-circle"></i>
+                                    </div>
+                                    <div class="stat-content">
+                                        <h4>${data.total_defects || 0}</h4>
+                                        <p>缺陷焊点</p>
+                                    </div>
+                                </div>
+                                <div class="stat-card info">
+                                    <div class="stat-icon">
+                                        <i class="fas fa-percentage"></i>
+                                    </div>
+                                    <div class="stat-content">
+                                        <h4>${(data.avg_pass_rate || 0).toFixed(1)}%</h4>
+                                        <p>平均良品率</p>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <h4>原始数据:</h4>
+                            <pre>${JSON.stringify(data, null, 2)}</pre>
+                            
+                            <h4>趋势数据:</h4>
+                            ${data.trends.map(trendData => `
+                                <p>${trendData[0]}: ${trendData[1]} 个报告, 良品率 ${trendData[2].toFixed(1)}%, ${trendData[3]} 个缺陷</p>
+                            `).join('')}
+                        </div>
+                    `;
+                } else {
+                    document.getElementById('result').innerHTML = '<p>无趋势数据</p>';
+                }
+            })
+            .catch(error => {
+                console.error('测试失败:', error);
+                document.getElementById('result').innerHTML = `<p style="color: red;">测试失败: ${error.message}</p>`;
+            });
+        }
+    </script>
+</head>
+<body>
+    <h1>统计功能测试页面</h1>
+    <button onclick="testStatistics()" style="padding: 10px 20px; font-size: 16px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer;">测试统计API</button>
+    <div id="result" class="test-result"></div>
+</body>
+</html>
