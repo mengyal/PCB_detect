@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PCB焊点检测系统</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="static/style.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <!-- 头部 -->
+        <header class="header">
+            <div class="header-content">
+                <h1><i class="fas fa-microchip"></i> PCB焊点检测系统</h1>
+                <div class="system-status">
+                    <span class="status-indicator" id="systemStatus">系统就绪</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- 主要内容区 -->
+        <main class="main-content">
+            <!-- 左侧控制面板 -->
+            <aside class="control-panel">
+                <div class="panel-section">
+                    <h3><i class="fas fa-cog"></i> 1. 预处理</h3>
+                    <div class="form-group">
+                        <label>图像尺寸:</label>
+                        <div class="size-inputs">
+                            <input type="number" id="resizeWidth" value="512" min="64" max="2048" step="32">
+                            <span>×</span>
+                            <input type="number" id="resizeHeight" value="512" min="64" max="2048" step="32">
+                        </div>
+                    </div>
+                    <button class="btn btn-primary" onclick="updatePreprocessingConfig()">
+                        <i class="fas fa-save"></i> 更新配置
+                    </button>
+                    <button class="btn btn-success" onclick="runPreprocessing()">
+                        <i class="fas fa-play"></i> 开始预处理
+                    </button>
+                </div>
+
+                <div class="panel-section">
+                    <h3><i class="fas fa-database"></i> 2. 训练数据</h3>
+                    
+                    <!-- 数据集上传 -->
+                    <div class="dataset-upload">
+                        <h4>数据集结构指导</h4>
+                        <div class="dataset-options">
+                            <button class="btn btn-outline" onclick="showDatasetStructure('yolo')">
+                                <i class="fas fa-eye"></i> YOLO格式
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 训练路径配置 -->
+                    <div class="path-config">
+                        <h4>训练路径配置</h4>
+                        <div class="form-group">
+                            <label>图片目录:</label>
+                            <input type="text" id="imgDir" value="./data/dataset_0706/processed" class="path-input">
+                        </div>
+                        <div class="form-group">
+                            <label>标注目录:</label>
+                            <input type="text" id="jsonDir" value="./data/dataset_0706/json" class="path-input">
+                        </div>
+                        <div class="form-group">
+                            <label>模型保存路径:</label>
+                            <input type="text" id="modelSavePath" value="./models/trained/unet_solder_model.pth" class="path-input">
+                        </div>
+                        <button class="btn btn-primary" onclick="updateTrainingConfig()">
+                            <i class="fas fa-save"></i> 更新配置
+                        </button>
+                    </div>
+
+                    <button class="btn btn-success" onclick="runTraining()">
+                        <i class="fas fa-play"></i> 开始训练
+                    </button>
+                </div>
+
+                <div class="panel-section">
+                    <h3><i class="fas fa-upload"></i> 3. 上传图片</h3>
+                    <div class="upload-area" id="uploadArea">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                        <p>拖拽图片到此处或点击选择</p>
+                        <input type="file" id="imageUpload" multiple accept="image/*" style="display: none;">
+                    </div>
+                    <div class="uploaded-files" id="uploadedFiles"></div>
+                </div>
+
+                <div class="panel-section">
+                    <h3><i class="fas fa-search"></i> 4. 检测</h3>
+                    <div class="detection-buttons">
+                        <button class="btn btn-info" onclick="runDetection('yolo')">
+                            <i class="fas fa-robot"></i> YOLO检测
+                        </button>
+                    </div>
+                </div>
+
+                <div class="panel-section">
+                    <h3><i class="fas fa-chart-line"></i> 5. 报告管理</h3>
+                    
+                    <!-- 报告查看 -->
+                    <div class="report-actions">
+                        <button class="btn btn-info" onclick="showReportsModal()">
+                            <i class="fas fa-file-alt"></i> 查看报告
+                        </button>
+                        <button class="btn btn-success" onclick="showStatisticsModal()">
+                            <i class="fas fa-chart-bar"></i> 统计分析
+                        </button>
+                        <button class="btn btn-warning" onclick="exportReports()">
+                            <i class="fas fa-download"></i> 导出报告
+                        </button>
+                    </div>
+                    
+                    <!-- 快速统计 -->
+                    <div class="quick-stats" id="quickStats">
+                        <div class="stat-item">
+                            <span class="stat-label">总报告数</span>
+                            <span class="stat-value" id="totalReports">--</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">平均良品率</span>
+                            <span class="stat-value" id="averageYield">--%</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">总焊点数</span>
+                            <span class="stat-value" id="totalSolderPoints">--</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">良品焊点</span>
+                            <span class="stat-value" id="goodSolderPoints">--</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">缺陷焊点</span>
+                            <span class="stat-value" id="defectSolderPoints">--</span>
+                        </div>
+                    </div>
+                    
+                    <!-- 统计刷新按钮 -->
+                    <div style="margin-top: 10px;">
+                        <button class="btn btn-sm btn-outline" onclick="loadQuickStats()" title="刷新统计数据">
+                            <i class="fas fa-sync-alt"></i> 刷新统计
+                        </button>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- 右侧内容区 -->
+            <section class="content-area">
+                <!-- 检测结果区 -->
+                <div class="results-section">
+                    <h3><i class="fas fa-images"></i> 检测结果</h3>
+                    
+                    <!-- 结果类型选择标签 -->
+                    <div class="result-tabs">
+                        <button class="tab-btn active" onclick="switchResultTab('segment')" id="segmentTab">
+                            <i class="fas fa-search"></i> 焊点检测结果 (Segment)
+                        </button>
+                        <button class="tab-btn" onclick="switchResultTab('yolo')" id="yoloTab">
+                            <i class="fas fa-robot"></i> YOLO检测结果
+                        </button>
+                    </div>
+                    
+                    <!-- 焊点检测结果面板 -->
+                    <div id="segmentResults" class="result-panel active">
+                        <div class="result-header">
+                            <h4>焊点检测结果 (UNet++ Segmentation)</h4>
+                            <div class="result-controls">
+                                <div class="zoom-controls">
+                                    <button class="btn btn-sm" onclick="adjustImageSize('segment', 0.8)" title="缩小">
+                                        <i class="fas fa-search-minus"></i>
+                                    </button>
+                                    <span id="segmentZoomLevel">100%</span>
+                                    <button class="btn btn-sm" onclick="adjustImageSize('segment', 1.2)" title="放大">
+                                        <i class="fas fa-search-plus"></i>
+                                    </button>
+                                    <button class="btn btn-sm" onclick="resetImageSize('segment')" title="重置">
+                                        <i class="fas fa-expand-arrows-alt"></i>
+                                    </button>
+                                </div>
+                                <button class="btn btn-sm" onclick="refreshResults('visualization')">
+                                    <i class="fas fa-sync-alt"></i> 刷新
+                                </button>
+                                <button class="btn btn-sm btn-success" onclick="runVisualization()">
+                                    <i class="fas fa-play"></i> 运行检测
+                                </button>
+                                <button class="btn btn-sm btn-primary" onclick="generateReports()">
+                                    <i class="fas fa-file-plus"></i> 生成报告
+                                </button>
+                            </div>
+                        </div>
+                        <div class="result-grid" id="visualizationResultGrid">
+                            <div class="no-results">
+                                <i class="fas fa-inbox"></i>
+                                <p>暂无检测结果</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- YOLO检测结果面板 -->
+                    <div id="yoloResults" class="result-panel">
+                        <div class="result-header">
+                            <h4>YOLO目标检测结果</h4>
+                            <div class="result-controls">
+                                <div class="zoom-controls">
+                                    <button class="btn btn-sm" onclick="adjustImageSize('yolo', 0.8)" title="缩小">
+                                        <i class="fas fa-search-minus"></i>
+                                    </button>
+                                    <span id="yoloZoomLevel">100%</span>
+                                    <button class="btn btn-sm" onclick="adjustImageSize('yolo', 1.2)" title="放大">
+                                        <i class="fas fa-search-plus"></i>
+                                    </button>
+                                    <button class="btn btn-sm" onclick="resetImageSize('yolo')" title="重置">
+                                        <i class="fas fa-expand-arrows-alt"></i>
+                                    </button>
+                                </div>
+                                <button class="btn btn-sm" onclick="refreshResults('yolo')">
+                                    <i class="fas fa-sync-alt"></i> 刷新
+                                </button>
+                                <button class="btn btn-sm btn-info" onclick="runDetection('yolo')">
+                                    <i class="fas fa-play"></i> 运行YOLO检测
+                                </button>
+                            </div>
+                        </div>
+                        <div class="result-grid" id="yoloResultGrid">
+                            <div class="no-results">
+                                <i class="fas fa-inbox"></i>
+                                <p>暂无检测结果</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 日志区域 -->
+                <div class="logs-section">
+                    <div class="logs-header">
+                        <h3><i class="fas fa-terminal"></i> 系统日志</h3>
+                        <div class="logs-controls">
+                            <button class="btn btn-sm" onclick="clearLogs()">
+                                <i class="fas fa-trash"></i> 清空
+                            </button>
+                            <button class="btn btn-sm" onclick="toggleAutoScroll()">
+                                <i class="fas fa-arrow-down"></i> 自动滚动
+                            </button>
+                        </div>
+                    </div>
+                    <div class="logs-content" id="logsContent">
+                        <div class="log-entry">
+                            <span class="log-time">[2025-07-08 12:00:00]</span>
+                            <span class="log-level info">[INFO]</span>
+                            <span class="log-message">系统初始化完成</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- 模态窗口 -->
+    <div id="modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal()">&times;</span>
+            <div id="modalBody"></div>
+        </div>
+    </div>
+
+    <!-- 报告查看模态窗口 -->
+    <div id="reportsModal" class="modal">
+        <div class="modal-content large">
+            <span class="close" onclick="closeReportsModal()">&times;</span>
+            <div class="modal-header">
+                <h2><i class="fas fa-file-alt"></i> 检测报告管理</h2>
+                <div class="modal-controls">
+                    <input type="text" id="batchFilter" placeholder="按批次过滤..." onchange="filterReports()">
+                    <input type="date" id="startDateFilter" onchange="filterReports()">
+                    <input type="date" id="endDateFilter" onchange="filterReports()">
+                    <button class="btn btn-sm btn-primary" onclick="filterReports()">筛选</button>
+                </div>
+            </div>
+            <div id="reportsTableContainer">
+                <table class="reports-table" id="reportsTable">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>图片名称</th>
+                            <th>PCB型号</th>
+                            <th>批次号</th>
+                            <th>检测时间</th>
+                            <th>焊点总数</th>
+                            <th>良品数</th>
+                            <th>良品率</th>
+                            <th>结论</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="reportsTableBody">
+                        <!-- 动态加载报告数据 -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- 报告详情模态窗口 -->
+    <div id="reportDetailModal" class="modal">
+        <div class="modal-content medium">
+            <span class="close" onclick="closeReportDetailModal()">&times;</span>
+            <div id="reportDetailContent">
+                <!-- 动态加载报告详情 -->
+            </div>
+        </div>
+    </div>
+
+    <!-- 统计分析模态窗口 -->
+    <div id="statisticsModal" class="modal">
+        <div class="modal-content large">
+            <span class="close" onclick="closeStatisticsModal()">&times;</span>
+            <div class="modal-header">
+                <h2><i class="fas fa-chart-bar"></i> 检测统计分析</h2>
+            </div>
+            <div id="statisticsContent">
+                <!-- 动态加载统计数据 -->
+            </div>
+        </div>
+    </div>
+
+    <!-- 加载提示 -->
+    <div id="loadingOverlay" class="loading-overlay">
+        <div class="loading-spinner">
+            <i class="fas fa-spinner fa-spin"></i>
+            <p>处理中...</p>
+        </div>
+    </div>
+
+    <script src="static/script.js"></script>
+</body>
+</html>
